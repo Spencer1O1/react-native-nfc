@@ -85,11 +85,12 @@ class NfcService {
   // --- Writer ---
   async writeNdef(records: NdefRecord[]) {
     if (this.state !== "idle") {
-      throw new Error(`Cannot write while reader is ${this.state}`);
+      throw new Error(`[NFC] Cannot write while reader is ${this.state}`);
     }
 
     this.setState("writing");
 
+    let success = false;
     try {
       await NfcManager.requestTechnology(NfcTech.Ndef, {
         alertMessage: "Hold near NFC tag to write",
@@ -98,17 +99,16 @@ class NfcService {
       await NfcManager.ndefHandler.writeNdefMessage(bytes);
       if (Platform.OS === "ios")
         NfcManager.setAlertMessageIOS("Write successful");
-
-      this.setState("idle");
-      return { success: true };
-    } catch (err) {
+      success = true;
+    } catch (err: any) {
       console.warn("[NFC] writeNdef error:", err);
-      this.setState("idle");
-      return { success: false, error: err };
+      success = false;
     } finally {
       try {
         await NfcManager.cancelTechnologyRequest();
       } catch {}
+      this.setState("idle");
+      return success;
     }
   }
 }
