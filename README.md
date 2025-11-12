@@ -22,7 +22,7 @@ React Native 0.74+ or Expo (Bare / Prebuild)
 import { nfcService, useNfcState, NfcUtils } from "@spencer/nfc";
 
 export default function Example() {
-  const { state, isWriting } = useNfcState();
+  const { state } = useNfcState();
 
   useEffect(() => {
     nfcService.startReader(
