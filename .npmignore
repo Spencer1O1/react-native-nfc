@@ -1,0 +1,17 @@
+# Exclude source
+src/
+# Exclude build & test configs
+tsconfig.json
+tsup.config.ts
+# Exclude editor/project files
+.gitignore
+.npmignore
+# Exclude dev & local files
+node_modules/
+package-lock.json
+yarn.lock
+.env
+*.log
+# Exclude CI / drafts
+.github/
+README.draft.md
