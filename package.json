@@ -1,6 +1,6 @@
 {
   "name": "@spencerls/react-native-nfc",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A lightweight NFC manager for React Native projects using react-native-nfc-manager.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
