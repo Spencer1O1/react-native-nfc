@@ -1,3 +1,4 @@
 export * from "./NfcService";
 export * from "./NfcUtils";
-export * from "./useNfcState";
+export * from "./useNfc";
+export * from "./utils/NfcV";
