@@ -1,6 +1,6 @@
 # @spencer/nfc
 
-A clean, easy, React-friendly NFC service built on `react-native-nfc-manager`.
+An easy, clean, React-friendly NFC service built on `react-native-nfc-manager`.
 
 ## Installation
 
@@ -19,25 +19,26 @@ React Native 0.74+ or Expo (Bare / Prebuild)
 ## Usage
 
 ```tsx
-import { nfcService, useNfcState, NfcUtils } from "@spencer/nfc";
+import { nfc } from "@spencer/nfc";
+import { Ndef, NfcAdapter } from "react-native-nfc-manager";
 
 export default function Example() {
-  const { state } = useNfcState();
+  const { nfcState } = useNfc();
 
   useEffect(() => {
-    nfcService.startReader(
+    nfc.service.startReader(
       NfcAdapter.FLAG_READER_NFC_V | NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS,
       async (tag) => {
         console.log("Tag:", tag);
-        await nfcService.stopReader();
-        await nfcService.writeNdef([NfcUtils.textRecord("Hello NFC!")]);
+        await nfc.service.stopReader();
+        await nfc.service.writeNdef([Ndef.textRecord("Hello NFC!")]);
       }
     );
 
-    return () => nfcService.stopReader();
+    return () => nfc.service.stopReader();
   }, []);
 
-  return <Text>NFC state: {state}</Text>;
+  return <Text>NFC state: {nfcState}</Text>;
 }
 ```
 
