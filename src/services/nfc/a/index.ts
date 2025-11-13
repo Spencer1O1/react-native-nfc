@@ -1,2 +1,2 @@
 export { operations } from "./operations";
-export * as utils from "./utils";
+export { NfcAUtils } from "./utils";

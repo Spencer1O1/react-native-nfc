@@ -1,8 +1,8 @@
 import { nfcService } from "./service";
 
-import { operations as aOps, utils as aUtils } from "./a";
-import { operations as ndefOps, utils as ndefUtils } from "./ndef";
-import { operations as vOps, utils as vUtils } from "./v";
+import { operations as aOps, NfcAUtils } from "./a";
+import { operations as ndefOps, NdefUtils } from "./ndef";
+import { NfcVUtils, operations as vOps } from "./v";
 /**
  * NFC root namespace providing access to:
  * - NfcService
@@ -16,18 +16,18 @@ export const nfc = {
   /** ISO15693 protocol helpers and high-level operations */
   v: {
     ...vOps, // NfcVOperations, nfcV
-    utils: vUtils,
+    utils: NfcVUtils,
   },
 
   /** NFC-A / Type 2 helpers and operations */
   a: {
     ...aOps,
-    utils: aUtils,
+    utils: NfcAUtils,
   },
 
   /** NDEF read/write utilities and operations */
   ndef: {
     ...ndefOps,
-    utils: ndefUtils,
+    utils: NdefUtils,
   },
 } as const;

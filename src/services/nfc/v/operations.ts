@@ -34,8 +34,12 @@ export const operations = {
   async getSystemInfoNfcV() {
     return this.withVTag(async (tag) => {
       const uid = NfcVUtils.reverseUid(tag.id);
+      console.log(`UID: ${uid}`);
       const cmd = NfcVUtils.buildGetSystemInfo(uid);
+      console.log(`CMD: ${cmd}`);
       const resp = await NfcManager.transceive(cmd);
+      console.log(`RESP: ${resp}`);
+
       return NfcVUtils.parseSystemInfo(resp);
     });
   },

@@ -40,7 +40,7 @@ import { NfcTech } from "react-native-nfc-manager";
 // | 4–7 | —    | RFU (reserved)                                                |
 
 export const NfcVUtils = {
-  tech: Platform.OS === "ios" ? [NfcTech.Iso15693IOS] : [NfcTech.NfcV],
+  tech: Platform.OS === "ios" ? [NfcTech.Iso15693IOS] : NfcTech.NfcV,
 
   Flags: {
     HIGH_DATA_RATE: 0x02,
@@ -111,8 +111,7 @@ export const NfcVUtils = {
    * Build GET_SYSTEM_INFO command.
    */
   buildGetSystemInfo(uidReversed: number[]): number[] {
-    const flags = this.flags(this.Flags.ADDRESSED, this.Flags.HIGH_DATA_RATE);
-    return [flags, this.Commands.GET_SYSTEM_INFO, ...uidReversed];
+    return [this.Flags.HIGH_DATA_RATE, this.Commands.GET_SYSTEM_INFO];
   },
 
   /**
@@ -200,7 +199,11 @@ export const NfcVUtils = {
 
   /** Identify common manufacturers based on UID prefix */
   detectManufacturer(uid: string): string {
-    if (uid.startsWith("E004") || uid.startsWith("E006"))
+    if (
+      uid.startsWith("E004") ||
+      uid.startsWith("E006") ||
+      uid.startsWith("E016")
+    )
       return "EM Microelectronic";
     if (uid.startsWith("E002")) return "STMicroelectronics";
     if (uid.startsWith("E007")) return "Texas Instruments";
