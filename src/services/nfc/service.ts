@@ -1,4 +1,3 @@
-// NfcService.ts
 import { Platform } from "react-native";
 import NfcManager, {
   NfcEvents,
