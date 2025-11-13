@@ -38,7 +38,23 @@ export default function Example() {
     return () => nfc.service.stopReader();
   }, []);
 
-  return <Text>NFC state: {nfcState}</Text>;
+  const start = async () => {
+    await nfc.v
+      .getSystemInfoNfcV()
+      .then((i) => {
+        console.log("info:", i);
+      })
+      .catch((e) => {
+        console.error("error:", e);
+      });
+  };
+
+  return (
+    <View style={{ padding: 100 }}>
+      <Text style={{ color: "#999" }}>NFC Mode: {nfcState.mode}</Text>
+      <Button title="Scan Tag" onPress={start} />
+    </View>
+  );
 }
 ```
 

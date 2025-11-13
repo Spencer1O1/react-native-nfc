@@ -1,1 +1,1 @@
-export const NfcAUtils = {};
+export const utils = {};

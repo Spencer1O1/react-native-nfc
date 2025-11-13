@@ -39,7 +39,7 @@ import { NfcTech } from "react-native-nfc-manager";
 // | 3   | 0x08 | IC reference present                                          |
 // | 4–7 | —    | RFU (reserved)                                                |
 
-export const NfcVUtils = {
+export const utils = {
   tech: Platform.OS === "ios" ? [NfcTech.Iso15693IOS] : NfcTech.NfcV,
 
   Flags: {

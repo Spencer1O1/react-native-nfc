@@ -1,2 +1,2 @@
 export { operations } from "./operations";
-export { NdefUtils } from "./utils";
+export { utils } from "./utils";

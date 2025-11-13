@@ -1,1 +1,1 @@
-export const NdefUtils = {};
+export const utils = {};

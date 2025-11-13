@@ -1,46 +1,31 @@
-import NfcManager, { TagEvent } from "react-native-nfc-manager";
+import NfcManager from "react-native-nfc-manager";
 import { nfcService } from "../service";
-import { NfcVUtils } from "./utils";
+import {
+  getSystemInfoRaw,
+  readBlockRaw,
+  StrictTagEvent,
+  writeBlockRaw,
+} from "./internal";
+import { utils } from "./utils";
 
 export const operations = {
-  async withVTag<T>(
-    handler: (tag: TagEvent & { id: string }) => Promise<T>
-  ): Promise<T> {
-    return nfcService.withTechnology(NfcVUtils.tech, async () => {
+  async withVTag<T>(handler: (tag: StrictTagEvent) => Promise<T>): Promise<T> {
+    return nfcService.withTechnology(utils.tech, async () => {
       const tag = await NfcManager.getTag();
       if (!tag?.id) throw new Error("No NFC-V tag detected");
-      return handler(tag as TagEvent & { id: string });
+      return handler(tag as StrictTagEvent);
     });
   },
 
   async writeBlockNfcV(blockNumber: number, data: Uint8Array) {
-    return this.withVTag(async (tag) => {
-      const uid = NfcVUtils.reverseUid(tag.id);
-      const cmd = NfcVUtils.buildWriteBlock(uid, blockNumber, data);
-      const resp = await NfcManager.transceive(cmd);
-      NfcVUtils.parseWriteResponse(resp);
-    });
+    return this.withVTag((tag) => writeBlockRaw(tag, blockNumber, data));
   },
 
   async readBlockNfcV(blockNumber: number) {
-    return this.withVTag(async (tag) => {
-      const uid = NfcVUtils.reverseUid(tag.id);
-      const cmd = NfcVUtils.buildReadBlock(uid, blockNumber);
-      const resp = await NfcManager.transceive(cmd);
-      return NfcVUtils.parseReadResponse(resp);
-    });
+    return this.withVTag((tag) => readBlockRaw(tag, blockNumber));
   },
 
   async getSystemInfoNfcV() {
-    return this.withVTag(async (tag) => {
-      const uid = NfcVUtils.reverseUid(tag.id);
-      console.log(`UID: ${uid}`);
-      const cmd = NfcVUtils.buildGetSystemInfo(uid);
-      console.log(`CMD: ${cmd}`);
-      const resp = await NfcManager.transceive(cmd);
-      console.log(`RESP: ${resp}`);
-
-      return NfcVUtils.parseSystemInfo(resp);
-    });
+    return this.withVTag((tag) => getSystemInfoRaw(tag));
   },
 };
