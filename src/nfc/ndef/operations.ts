@@ -1,8 +1,9 @@
 import NfcManager, {
   Ndef,
-  NdefRecord,
+  type NdefRecord,
   NfcTech,
 } from "react-native-nfc-manager";
+
 import { nfcService } from "../service";
 
 export const operations = {

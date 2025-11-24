@@ -1,7 +1,6 @@
-import { nfcService } from "./service";
-
 import { operations as aOps, utils as aUtils } from "./a";
 import { operations as ndefOps, utils as ndefUtils } from "./ndef";
+import { nfcService } from "./service";
 import { operations as vOps, utils as vUtils } from "./v";
 /**
  * NFC root namespace providing access to:

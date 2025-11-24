@@ -31,7 +31,7 @@ export const NfcV = {
   reverseUid(tagIdHex: string): number[] {
     const bytes = [];
     for (let i = 0; i < tagIdHex.length; i += 2) {
-      bytes.unshift(parseInt(tagIdHex.substring(i, i + 2), 16));
+      bytes.unshift(Number.parseInt(tagIdHex.substring(i, i + 2), 16));
     }
     return bytes;
   },
@@ -57,7 +57,7 @@ export const NfcV = {
   buildWriteBlock(
     uidReversed: number[],
     blockNumber: number,
-    data: Uint8Array
+    data: Uint8Array,
   ): number[] {
     const flags = this.flags(this.Flags.ADDRESSED, this.Flags.HIGH_DATA_RATE);
     return [
@@ -87,8 +87,12 @@ export const NfcV = {
     if (!resp || resp.length === 0) {
       throw new Error("Empty NFC-V response");
     }
-    if (resp[0] !== 0x00) {
-      throw new Error(`Read failed. Status: 0x${resp[0].toString(16)}`);
+    const status = resp[0];
+    if (status === undefined) {
+      throw new Error("Invalid NFC-V response: missing status byte");
+    }
+    if (status !== 0x00) {
+      throw new Error(`Read failed. Status: 0x${status.toString(16)}`);
     }
     return new Uint8Array(resp.slice(1));
   },
@@ -101,8 +105,12 @@ export const NfcV = {
     if (!resp || resp.length === 0) {
       throw new Error("Empty NFC-V response");
     }
-    if (resp[0] !== 0x00) {
-      throw new Error(`Write failed. Status: 0x${resp[0].toString(16)}`);
+    const status = resp[0];
+    if (status === undefined) {
+      throw new Error("Invalid NFC-V response: missing status byte");
+    }
+    if (status !== 0x00) {
+      throw new Error(`Write failed. Status: 0x${status.toString(16)}`);
     }
   },
 
@@ -111,11 +119,19 @@ export const NfcV = {
    * Returns: UID, DSFID, AFI, numberOfBlocks, blockSize, manufacturer
    */
   parseSystemInfo(resp: number[]) {
-    if (!resp || resp.length < 2 || resp[0] !== 0x00) {
+    if (!resp || resp.length < 2) {
       throw new Error("Invalid System Info response");
     }
+    const status = resp[0];
+    if (status === undefined || status !== 0x00) {
+      throw new Error("Invalid System Info response");
+    }
+    const flagsByte = resp[1];
+    if (flagsByte === undefined) {
+      throw new Error("Invalid System Info response: missing flags byte");
+    }
 
-    const infoFlags = resp[1] & 0x0f;
+    const infoFlags = flagsByte & 0x0f;
     let offset = 2;
 
     const result: any = {};
@@ -144,8 +160,14 @@ export const NfcV = {
 
     // Memory size info
     if (infoFlags & 0x04 && resp.length >= offset + 2) {
-      result.numberOfBlocks = resp[offset++] + 1;
-      result.blockSize = resp[offset++] + 1;
+      const numBlocks = resp[offset++];
+      const blkSize = resp[offset++];
+      if (numBlocks !== undefined) {
+        result.numberOfBlocks = numBlocks + 1;
+      }
+      if (blkSize !== undefined) {
+        result.blockSize = blkSize + 1;
+      }
     }
 
     // IC Reference

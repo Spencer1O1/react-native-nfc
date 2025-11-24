@@ -1,4 +1,4 @@
-import { Ndef, NdefRecord, TagEvent } from "react-native-nfc-manager";
+import { Ndef, type NdefRecord, type TagEvent } from "react-native-nfc-manager";
 
 const toU8 = (v: number[] | Uint8Array | ArrayBuffer): Uint8Array => {
   if (v instanceof Uint8Array) return v;
@@ -32,6 +32,9 @@ function decodeRecord(record: {
   // ✅ TEXT RECORD
   if (tnf === Ndef.TNF_WELL_KNOWN && typeStr === "T") {
     const status = payloadU8[0];
+    if (status === undefined) {
+      throw new Error("Invalid TEXT record: missing status byte");
+    }
     const langLen = status & 0x3f;
     const lang = toAscii(payloadU8.subarray(1, 1 + langLen));
     const textBytes = payloadU8.subarray(1 + langLen);

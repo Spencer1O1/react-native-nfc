@@ -1,9 +1,10 @@
 import NfcManager from "react-native-nfc-manager";
+
 import { nfcService } from "../service";
 import {
   getSystemInfoRaw,
   readBlockRaw,
-  StrictTagEvent,
+  type StrictTagEvent,
   writeBlockRaw,
 } from "./internal";
 import { utils } from "./utils";

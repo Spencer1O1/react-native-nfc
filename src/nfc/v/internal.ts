@@ -1,4 +1,5 @@
-import NfcManager, { TagEvent } from "react-native-nfc-manager";
+import NfcManager, { type TagEvent } from "react-native-nfc-manager";
+
 import { utils } from "./utils";
 
 export type StrictTagEvent = TagEvent & {
@@ -15,7 +16,7 @@ export async function readBlockRaw(tag: StrictTagEvent, blockNumber: number) {
 export async function writeBlockRaw(
   tag: StrictTagEvent,
   blockNumber: number,
-  data: Uint8Array
+  data: Uint8Array,
 ) {
   const uid = utils.reverseUid(tag.id);
   const cmd = utils.buildWriteBlock(uid, blockNumber, data);
