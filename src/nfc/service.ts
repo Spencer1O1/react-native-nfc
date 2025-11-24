@@ -16,7 +16,6 @@ export class NfcService {
   private isProcessingTag = false;
   private currentOnTag?: (tag: TagEvent) => Promise<void> | void;
   private currentCooldownMs = 1500;
-  private lastUsedReaderFlags: number | null = null; // needed for iOS restart
 
   constructor() {
     NfcManager.start();
@@ -36,14 +35,14 @@ export class NfcService {
 
   subscribe(fn: NfcListener) {
     this.listeners.add(fn);
-    fn(this.state);
+    fn(this.state); // emit immediately
     return () => {
-      this.listeners.delete(fn); // ignore boolean
+      this.listeners.delete(fn);
     };
   }
 
   // -----------------------------
-  // START READER
+  // START READER (Soft Continuous Mode)
   // -----------------------------
   async startReader(
     readerModeFlags: number,
@@ -57,46 +56,39 @@ export class NfcService {
 
     this.currentOnTag = onTag;
     this.currentCooldownMs = options?.cooldownMs ?? 1500;
-    this.lastUsedReaderFlags = readerModeFlags;
     this.isProcessingTag = false;
 
     this.setState({ mode: "starting", tag: null });
 
+    // Tag listener
     NfcManager.setEventListener(
       NfcEvents.DiscoverTag,
       async (tag: TagEvent) => {
         if (!tag) return;
 
-        // Soft lock to avoid duplicate processing
+        // Prevent reprocessing until tag removed & cooldown completed
         if (this.isProcessingTag) return;
 
         this.isProcessingTag = true;
         this.setState({ tag, mode: "active" });
 
         try {
-          if (this.currentOnTag) {
-            await this.currentOnTag(tag);
-          }
+          await this.currentOnTag?.(tag);
         } catch (err) {
           console.warn("[NFC] onTag handler error:", err);
         } finally {
           const cooldown = this.currentCooldownMs;
 
-          setTimeout(async () => {
+          // After cooldown, allow a new scan *only after tag is removed*
+          setTimeout(() => {
             this.isProcessingTag = false;
             this.setState({ tag: null, mode: "active" });
-
-            // -----------------------------
-            // iOS MUST restart reader
-            // -----------------------------
-            if (Platform.OS === "ios") {
-              await this._restartIosReader();
-            }
           }, cooldown);
         }
       },
     );
 
+    // Start reader
     try {
       await NfcManager.registerTagEvent({
         isReaderModeEnabled: true,
@@ -113,7 +105,7 @@ export class NfcService {
   }
 
   // -----------------------------
-  // STOP READER
+  // STOP READER (explicit only)
   // -----------------------------
   async stopReader() {
     if (["idle", "stopping"].includes(this.state.mode)) return;
@@ -133,28 +125,6 @@ export class NfcService {
     this.setState({ mode: "idle", tag: null });
     this.currentOnTag = undefined;
     this.isProcessingTag = false;
-    // keep lastUsedReaderFlags so iOS restart can keep using them
-  }
-
-  // -----------------------------
-  // iOS RESTART
-  // -----------------------------
-  private async _restartIosReader() {
-    if (Platform.OS !== "ios") return;
-    if (this.lastUsedReaderFlags == null) return;
-
-    try {
-      await NfcManager.unregisterTagEvent();
-      await NfcManager.registerTagEvent({
-        isReaderModeEnabled: true,
-        readerModeFlags: this.lastUsedReaderFlags,
-      });
-
-      this.setState({ mode: "active" });
-    } catch (err) {
-      console.warn("[NFC] iOS restart error:", err);
-      this._resetReaderState();
-    }
   }
 
   // -----------------------------
@@ -168,7 +138,7 @@ export class NfcService {
       throw new Error("[NFC] Technology is already in use!");
     }
 
-    // Reader must be stopped for tech sessions
+    // Stop reader before using tech session
     if (["starting", "active", "stopping"].includes(this.state.mode)) {
       await this.stopReader();
     }
@@ -207,5 +177,5 @@ export class NfcService {
   }
 }
 
-// Export one stable instance
+// Export singleton
 export const nfcService = new NfcService();
