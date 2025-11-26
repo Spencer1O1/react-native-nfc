@@ -16,9 +16,17 @@ export class NfcService {
   private isProcessingTag = false;
   private currentOnTag?: (tag: TagEvent) => Promise<void> | void;
   private currentCooldownMs = 1500;
+  private cooldownTimer?: ReturnType<typeof setTimeout>;
+
+  private readerModeFlags_ANDROID: number | null = null;
 
   constructor() {
     NfcManager.start();
+  }
+
+  enableReaderMode_ANDROID(flags: number) {
+    if (Platform.OS !== "android") return;
+    this.readerModeFlags_ANDROID = flags;
   }
 
   // -----------------------------
@@ -45,7 +53,6 @@ export class NfcService {
   // START READER (Soft Continuous Mode)
   // -----------------------------
   async startReader(
-    readerModeFlags: number,
     onTag?: (tag: TagEvent) => Promise<void> | void,
     options?: { cooldownMs?: number },
   ) {
@@ -80,9 +87,13 @@ export class NfcService {
           const cooldown = this.currentCooldownMs;
 
           // After cooldown, allow a new scan *only after tag is removed*
-          setTimeout(() => {
+          if (this.cooldownTimer) {
+            clearTimeout(this.cooldownTimer);
+          }
+          this.cooldownTimer = setTimeout(() => {
             this.isProcessingTag = false;
-            this.setState({ tag: null, mode: "active" });
+            this.setState({ tag: null });
+            this.cooldownTimer = undefined;
           }, cooldown);
         }
       },
@@ -90,10 +101,14 @@ export class NfcService {
 
     // Start reader
     try {
-      await NfcManager.registerTagEvent({
-        isReaderModeEnabled: true,
-        readerModeFlags,
-      });
+      if (this.readerModeFlags_ANDROID) {
+        await NfcManager.registerTagEvent({
+          isReaderModeEnabled: true,
+          readerModeFlags: this.readerModeFlags_ANDROID,
+        });
+      } else {
+        await NfcManager.registerTagEvent();
+      }
 
       if ((this.state.mode as NfcMode) === "starting") {
         this.setState({ mode: "active" });
@@ -111,6 +126,12 @@ export class NfcService {
     if (["idle", "stopping"].includes(this.state.mode)) return;
 
     this.setState({ mode: "stopping" });
+    // Ignore any late tag events while we tear down the reader
+    NfcManager.setEventListener(NfcEvents.DiscoverTag, () => {});
+    if (this.cooldownTimer) {
+      clearTimeout(this.cooldownTimer);
+      this.cooldownTimer = undefined;
+    }
 
     try {
       await NfcManager.unregisterTagEvent();
@@ -122,6 +143,10 @@ export class NfcService {
   }
 
   private _resetReaderState() {
+    if (this.cooldownTimer) {
+      clearTimeout(this.cooldownTimer);
+      this.cooldownTimer = undefined;
+    }
     this.setState({ mode: "idle", tag: null });
     this.currentOnTag = undefined;
     this.isProcessingTag = false;
@@ -138,8 +163,22 @@ export class NfcService {
       throw new Error("[NFC] Technology is already in use!");
     }
 
+    if (this.readerModeFlags_ANDROID) {
+      return this.withTechnologyReaderMode_ANDROID(
+        tech,
+        handler,
+        this.readerModeFlags_ANDROID,
+      );
+    }
+
     // Stop reader before using tech session
-    if (["starting", "active", "stopping"].includes(this.state.mode)) {
+    const readerWasActive = ["starting", "active", "stopping"].includes(
+      this.state.mode,
+    );
+    const savedOnTag = this.currentOnTag;
+    const savedCooldown = this.currentCooldownMs;
+
+    if (readerWasActive) {
       await this.stopReader();
     }
 
@@ -149,7 +188,7 @@ export class NfcService {
       );
     }
 
-    this.setState({ mode: "technology", tag: null });
+    this.setState({ mode: "technology" });
 
     try {
       await NfcManager.requestTechnology(tech, {
@@ -173,6 +212,54 @@ export class NfcService {
       } catch {}
 
       this.setState({ mode: "idle", tag: null });
+
+      // If reader was active before tech session, restart it automatically
+      if (readerWasActive) {
+        try {
+          await this.startReader(savedOnTag, { cooldownMs: savedCooldown });
+        } catch (err) {
+          console.warn(
+            "[NFC] Failed to restart reader after tech session",
+            err,
+          );
+        }
+      }
+    }
+  }
+
+  private async withTechnologyReaderMode_ANDROID<T>(
+    tech: NfcTech | NfcTech[],
+    handler: () => Promise<T>,
+    flags: number,
+  ): Promise<T> {
+    const readerWasActive = ["starting", "active", "stopping"].includes(
+      this.state.mode,
+    );
+
+    // Keep reader mode active during tech request to avoid dispatch gap
+    this.isProcessingTag = true;
+    this.setState({ mode: "technology" });
+
+    try {
+      await NfcManager.requestTechnology(tech, {
+        isReaderModeEnabled: true,
+        readerModeFlags: flags,
+      });
+
+      return await handler();
+    } catch (err: any) {
+      const message =
+        typeof err === "string" ? err : err?.message || "Unknown NFC error";
+      throw new Error(
+        `[NFC] withTechnologyReaderMode_ANDROID error: ${message}`,
+      );
+    } finally {
+      try {
+        await NfcManager.cancelTechnologyRequest();
+      } catch {}
+
+      this.isProcessingTag = false;
+      this.setState({ mode: readerWasActive ? "active" : "idle" });
     }
   }
 }

@@ -1,17 +1,15 @@
 import { useEffect } from "react";
+import type { TagEvent } from "react-native-nfc-manager";
 
 import { nfcService } from "../nfc/service";
 
 export function useNfc(
   onTag: (tagId: string) => void,
-  options: { cooldownMs?: number; flags: number },
+  options: { cooldownMs?: number },
 ) {
   useEffect(() => {
-    const flags = options.flags;
-
     nfcService.startReader(
-      flags,
-      async (tag) => {
+      async (tag: TagEvent) => {
         if (!tag.id) return;
         onTag(tag.id);
       },

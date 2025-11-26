@@ -35,18 +35,21 @@ Works with:
 ## Basic Usage (Reader Mode)
 
 ```tsx
-import { useNfc, useNfcState } from "@spencerls/react-native-nfc";
+import { useNfc, useNfcState, nfcService } from "@spencerls/react-native-nfc";
 import { NfcAdapter } from "react-native-nfc-manager";
 
 export default function ScannerScreen() {
   const { mode } = useNfcState();
 
+  // Enable Android reader mode (call once, typically at app startup)
+  nfcService.enableReaderMode_ANDROID(
+    NfcAdapter.FLAG_READER_NFC_V |
+    NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS
+  );
+
   useNfc((tagId) => {
     console.log("Scanned:", tagId);
   }, {
-    flags:
-      NfcAdapter.FLAG_READER_NFC_V |
-      NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS,
     cooldownMs: 800
   });
 
@@ -63,19 +66,21 @@ export default function ScannerScreen() {
 ## Manual Reader Control
 
 ```tsx
-import { useNfcReader } from "@spencerls/react-native-nfc";
+import { useNfcReader, nfcService } from "@spencerls/react-native-nfc";
 import { NfcAdapter } from "react-native-nfc-manager";
 
 export default function Screen() {
   const { start, stop } = useNfcReader();
 
+  // Enable Android reader mode (call once, typically at app startup)
+  nfcService.enableReaderMode_ANDROID(NfcAdapter.FLAG_READER_NFC_V);
+
   const begin = () => {
     start(
-      NfcAdapter.FLAG_READER_NFC_V,
       (tag) => {
         console.log("Tag:", tag.id);
       },
-      1200
+      { cooldownMs: 1200 }
     );
   };
 

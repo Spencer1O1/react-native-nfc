@@ -5,11 +5,8 @@ import { nfcService } from "../nfc/service";
 
 export function useNfcReader() {
   const start = useCallback(
-    (
-      flags: number, 
-      onTag?: (tag: TagEvent) => Promise<void> | void, 
-      cooldownMs?: number) => {
-      nfcService.startReader(flags, onTag, { cooldownMs });
+    (onTag?: (tag: TagEvent) => Promise<void> | void, cooldownMs?: number) => {
+      nfcService.startReader(onTag, { cooldownMs });
     },
     [],
   );

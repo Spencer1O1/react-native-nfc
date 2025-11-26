@@ -25,13 +25,29 @@ import { nfcService } from "@spencerls/react-native-nfc";
 
 ### Methods
 
-#### startReader(flags, onTag, options?)
+#### enableReaderMode_ANDROID(flags)
+Configures Android reader mode flags. Must be called before `startReader()` or `withTechnology()`.  
+No-op on iOS.
+
+```ts
+nfcService.enableReaderMode_ANDROID(flags: number);
+```
+
+**Example:**
+```ts
+import { NfcAdapter } from "react-native-nfc-manager";
+
+nfcService.enableReaderMode_ANDROID(
+  NfcAdapter.FLAG_READER_NFC_V | NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS
+);
+```
+
+#### startReader(onTag, options?)
 Starts platform reader mode.
 
 ```ts
 nfcService.startReader(
-  flags: number,
-  onTag: (tag: TagEvent) => void,
+  onTag?: (tag: TagEvent) => void,
   options?: { cooldownMs?: number }
 )
 ```
@@ -130,14 +146,29 @@ import { ... } from "@spencerls/react-native-nfc";
 
 Automatically starts reader mode on mount and stops on unmount.
 
+**Note:** Call `nfcService.enableReaderMode_ANDROID(flags)` before using this hook on Android.
+
 ```ts
 useNfc(
   (tagId: string) => { ... },
   {
-    flags?: number,
     cooldownMs?: number
   }
 );
+```
+
+**Example:**
+```ts
+import { nfcService } from "@spencerls/react-native-nfc";
+import { NfcAdapter } from "react-native-nfc-manager";
+
+// Call once at app startup
+nfcService.enableReaderMode_ANDROID(NfcAdapter.FLAG_READER_NFC_V);
+
+// Then use the hook
+useNfc((tagId) => {
+  console.log("Scanned:", tagId);
+}, { cooldownMs: 800 });
 ```
 
 ---
@@ -156,8 +187,13 @@ const { mode, tag } = useNfcState();
 
 Manual control over reader mode.
 
+**Note:** Call `nfcService.enableReaderMode_ANDROID(flags)` before calling `start()` on Android.
+
 ```ts
 const { start, stop } = useNfcReader();
+
+// start signature:
+start(onTag?: (tag: TagEvent) => void, options?: { cooldownMs?: number })
 ```
 
 ---
@@ -202,6 +238,7 @@ TagEvent
 
 # Internal Notes
 
+- **Android reader mode flags** must be configured via `enableReaderMode_ANDROID()` before starting reader mode or using technology sessions.
 - iOS automatically restarts reader mode after each scan.
 - Android waits for cooldown before accepting next scan.
 - Technology sessions interrupt reader mode safely.
