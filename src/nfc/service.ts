@@ -1,10 +1,11 @@
 import { Platform } from "react-native";
-import NfcManager, {
+import nfcManager, {
   NfcEvents,
   type NfcTech,
   type TagEvent,
 } from "react-native-nfc-manager";
 
+import { NfcError } from "./error";
 import type { NfcMode, NfcState } from "./types";
 
 export type NfcListener = (state: NfcState) => void;
@@ -21,7 +22,7 @@ export class NfcService {
   private readerModeFlags_ANDROID: number | null = null;
 
   constructor() {
-    NfcManager.start();
+    nfcManager.start();
   }
 
   enableReaderMode_ANDROID(flags: number) {
@@ -68,7 +69,7 @@ export class NfcService {
     this.setState({ mode: "starting", tag: null });
 
     // Tag listener
-    NfcManager.setEventListener(
+    nfcManager.setEventListener(
       NfcEvents.DiscoverTag,
       async (tag: TagEvent) => {
         if (!tag) return;
@@ -102,12 +103,12 @@ export class NfcService {
     // Start reader
     try {
       if (this.readerModeFlags_ANDROID) {
-        await NfcManager.registerTagEvent({
+        await nfcManager.registerTagEvent({
           isReaderModeEnabled: true,
           readerModeFlags: this.readerModeFlags_ANDROID,
         });
       } else {
-        await NfcManager.registerTagEvent();
+        await nfcManager.registerTagEvent();
       }
 
       if ((this.state.mode as NfcMode) === "starting") {
@@ -127,14 +128,14 @@ export class NfcService {
 
     this.setState({ mode: "stopping" });
     // Ignore any late tag events while we tear down the reader
-    NfcManager.setEventListener(NfcEvents.DiscoverTag, () => {});
+    nfcManager.setEventListener(NfcEvents.DiscoverTag, () => {});
     if (this.cooldownTimer) {
       clearTimeout(this.cooldownTimer);
       this.cooldownTimer = undefined;
     }
 
     try {
-      await NfcManager.unregisterTagEvent();
+      await nfcManager.unregisterTagEvent();
     } catch (err) {
       console.warn("[NFC] unregisterTagEvent error:", err);
     }
@@ -160,7 +161,7 @@ export class NfcService {
     handler: () => Promise<T>,
   ): Promise<T> {
     if (this.state.mode === "technology") {
-      throw new Error("[NFC] Technology is already in use!");
+      throw new NfcError("Technology is already in use!");
     }
 
     if (this.readerModeFlags_ANDROID) {
@@ -183,32 +184,32 @@ export class NfcService {
     }
 
     if (this.state.mode !== "idle") {
-      throw new Error(
-        `[NFC] Cannot start technology session in mode ${this.state.mode}`,
+      throw new NfcError(
+        `Cannot start technology session in mode ${this.state.mode}`,
       );
     }
 
     this.setState({ mode: "technology" });
 
     try {
-      await NfcManager.requestTechnology(tech, {
+      await nfcManager.requestTechnology(tech, {
         alertMessage: "Hold near NFC tag",
       });
 
       const result = await handler();
 
       if (Platform.OS === "ios") {
-        await NfcManager.setAlertMessageIOS("Success!");
+        await nfcManager.setAlertMessageIOS("Success!");
       }
 
       return result;
     } catch (err: any) {
       const message =
         typeof err === "string" ? err : err?.message || "Unknown NFC error";
-      throw new Error(`[NFC] withTechnology error: ${message}`);
+      throw new NfcError(`withTechnology error: ${message}`);
     } finally {
       try {
-        await NfcManager.cancelTechnologyRequest();
+        await nfcManager.cancelTechnologyRequest();
       } catch {}
 
       this.setState({ mode: "idle", tag: null });
@@ -241,7 +242,7 @@ export class NfcService {
     this.setState({ mode: "technology" });
 
     try {
-      await NfcManager.requestTechnology(tech, {
+      await nfcManager.requestTechnology(tech, {
         isReaderModeEnabled: true,
         readerModeFlags: flags,
       });
@@ -250,12 +251,10 @@ export class NfcService {
     } catch (err: any) {
       const message =
         typeof err === "string" ? err : err?.message || "Unknown NFC error";
-      throw new Error(
-        `[NFC] withTechnologyReaderMode_ANDROID error: ${message}`,
-      );
+      throw new NfcError(`withTechnologyReaderMode_ANDROID error: ${message}`);
     } finally {
       try {
-        await NfcManager.cancelTechnologyRequest();
+        await nfcManager.cancelTechnologyRequest();
       } catch {}
 
       this.isProcessingTag = false;

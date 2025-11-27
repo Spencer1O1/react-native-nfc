@@ -1,2 +1,2 @@
-export { nfcVTag } from "./internal";
+export { nfcTag } from "./internal";
 export * as operations from "./operations";
