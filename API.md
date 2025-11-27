@@ -66,7 +66,7 @@ await nfcService.stopReader();
 ```
 
 #### withTechnology(tech, handler)
-Opens an iOS/Android technology session. Stops reader mode before starting.
+Opens an iOS/Android technology session.
 
 ```ts
 await nfcService.withTechnology(
