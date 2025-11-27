@@ -56,7 +56,7 @@ Works with:
 
 ---
 
-## Basic Usage (Reader Mode)
+## Basic Usage
 
 ```tsx
 import { useNfc, useNfcState, nfcService } from "@spencerls/react-native-nfc";
@@ -297,6 +297,7 @@ const records = nfc.ndef.Builder.records((B) => [
 nfc.service.enableReaderMode_ANDROID(flags); // Android-only (no-op on iOS)
 await nfc.service.startReader(onTag, options); // Cross-platform
 await nfc.service.stopReader(); // Cross-platform
+await nfc.service.withTechnology(tech, handler); // Cross-platform
 ```
 
 ---
