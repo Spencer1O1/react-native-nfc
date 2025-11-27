@@ -301,22 +301,6 @@ await nfc.service.stopReader(); // Cross-platform
 
 ---
 
-## Global Provider (Optional)
-
-```tsx
-import { NfcProvider } from "@spencerls/react-native-nfc";
-
-export default function App() {
-  return (
-    <NfcProvider>
-      <RootApp />
-    </NfcProvider>
-  );
-}
-```
-
----
-
 ## License
 
 MIT © Spencer Smith

@@ -18,7 +18,6 @@ import {
   useNfcState,
   useNfcReader,
   useNfcTechnology,
-  NfcProvider
 } from "@spencerls/react-native-nfc";
 ```
 
@@ -575,18 +574,6 @@ Runs an NFC technology session (NfcV, Ndef, etc).
 await runWithTech([NfcTech.NfcV], async () => {
   const info = await nfc.v.getSystemInfoNfcV();
 });
-```
-
----
-
-# NfcProvider
-
-Optional provider that exposes service state to React tree.
-
-```tsx
-<NfcProvider>
-  <App />
-</NfcProvider>
 ```
 
 ---
