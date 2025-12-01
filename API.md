@@ -14,10 +14,10 @@ import {
 } from "@spencerls/react-native-nfc";
 
 import {
-  useNfc,
-  useNfcState,
-  useNfcReader,
-  useNfcTechnology,
+  useNfcTech,
+  useNfcTechLoop,
+  useNfcTagEvent,
+  useNfcTagEventLoop,
 } from "@spencerls/react-native-nfc";
 ```
 
@@ -29,63 +29,106 @@ import {
 import { nfcService } from "@spencerls/react-native-nfc";
 ```
 
+The `nfcService` is a singleton that manages NFC operations using a job-based architecture with strategies for different operation types.
+
 ### Methods
 
-#### enableReaderMode_ANDROID(flags)
-Configures Android reader mode flags. Must be called before `startReader()` or `withTechnology()`.  
-No-op on iOS.
+#### startTech(tech, withTechnology, afterTechnology?, options?)
+
+Starts a one-shot technology session. Executes once and completes.
 
 ```ts
-nfcService.enableReaderMode_ANDROID(flags: number);
+await nfcService.startTech(
+  tech: NfcTech[],
+  withTechnology: () => Promise<void>,
+  afterTechnology?: () => Promise<void>,
+  options?: RegisterTagEventOpts
+): Promise<void>
 ```
 
 **Example:**
 ```ts
-import { NfcAdapter } from "react-native-nfc-manager";
+import { NfcTech } from "react-native-nfc-manager";
 
-nfcService.enableReaderMode_ANDROID(
-  NfcAdapter.FLAG_READER_NFC_V | NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS
+await nfcService.startTech(
+  [NfcTech.NfcV],
+  async () => {
+    const tag = await nfcTag.getTag();
+    console.log("Tag ID:", tag.id);
+  }
 );
 ```
 
-#### startReader(onTag, options?)
-Starts platform reader mode.
+#### startTechLoop(tech, withTechnology, afterTechnology?, options?)
+
+Starts a continuous technology session loop. Automatically restarts after each tag interaction.
 
 ```ts
-nfcService.startReader(
-  onTag?: (tag: TagEvent) => void,
-  options?: { cooldownMs?: number }
-)
+await nfcService.startTechLoop(
+  tech: NfcTech[],
+  withTechnology: () => Promise<void>,
+  afterTechnology?: () => Promise<void>,
+  options?: RegisterTagEventOpts
+): Promise<void>
 ```
 
-#### stopReader()
-Stops reader mode.
-
+**Example:**
 ```ts
-await nfcService.stopReader();
-```
-
-#### withTechnology(tech, handler)
-Opens an iOS/Android technology session. Stops reader mode before starting.
-
-```ts
-await nfcService.withTechnology(
-  tech: NfcTech | NfcTech[],
-  async () => { /* commands */ }
+await nfcService.startTechLoop(
+  [NfcTech.Ndef],
+  async () => {
+    const tag = await nfcTag.getTag();
+    console.log("Tag detected:", tag.id);
+  }
 );
 ```
 
-#### getState()
-Returns the current state snapshot.
+#### startTagEvent(onTag)
+
+Starts a one-shot tag event handler. Executes once when a tag is detected.
 
 ```ts
-{ mode, tag }
+await nfcService.startTagEvent(
+  onTag: (tag: TagEvent) => Promise<void>
+): Promise<void>
 ```
 
-#### subscribe(listener)
-Attach a state listener; returns an unsubscribe function.
+**Example:**
+```ts
+await nfcService.startTagEvent(async (tag) => {
+  console.log("Tag ID:", tag.id);
+});
+```
 
----
+#### startTagEventLoop(onTag, options?)
+
+Starts a continuous tag event loop. Automatically restarts after each tag detection.
+
+```ts
+await nfcService.startTagEventLoop(
+  onTag: (tag: TagEvent) => Promise<void>,
+  options?: RegisterTagEventOpts
+): Promise<void>
+```
+
+**Example:**
+```ts
+await nfcService.startTagEventLoop(
+  async (tag) => {
+    console.log("Tag detected:", tag.id);
+  },
+  { readerModeFlags: ... }
+);
+```
+
+#### stop()
+
+Stops all NFC operations and cleans up active sessions.
+
+```ts
+await nfcService.stop(): Promise<void>
+```
+
 
 # Namespace API: `nfc`
 
@@ -356,7 +399,7 @@ Builder.record(init: {
 
 # Low-Level Tag Modules
 
-These modules are used for advanced operations inside `withTechnology` sessions.
+These modules are used for advanced operations inside technology sessions.
 
 ## `nfcTag`
 
@@ -374,7 +417,7 @@ await nfcTag.getTag(): Promise<TagEvent>
 
 **Example:**
 ```ts
-await nfc.service.withTechnology(NfcTech.NfcV, async () => {
+await nfc.service.startTech([NfcTech.NfcV], async () => {
   const tag = await nfcTag.getTag();
   console.log("Tag ID:", tag.id);
 });
@@ -388,11 +431,11 @@ await nfc.service.withTechnology(NfcTech.NfcV, async () => {
 import { nfcVTag } from "@spencerls/react-native-nfc";
 ```
 
-Low-level NFC-V operations. Use inside `withTechnology` sessions.
+Low-level NFC-V operations. Use inside technology sessions.
 
 ### Properties
 
-- `tech`: NfcTech constant for NFC-V (use with `withTechnology`)
+- `tech`: NfcTech constant for NFC-V (use with technology sessions)
 - `utils`: ISO15693 utility functions
 
 ### Methods
@@ -449,9 +492,9 @@ await nfcVTag.transceive(bytes: number[]): Promise<number[]>
 
 **Example:**
 ```ts
-import { nfcTag, nfcVTag } from "@spencerls/react-native-nfc";
+import { nfc, nfcTag, nfcVTag } from "@spencerls/react-native-nfc";
 
-await nfc.service.withTechnology(nfcVTag.tech, async () => {
+await nfc.service.startTech(nfcVTag.tech, async () => {
   const tag = await nfcTag.getTag();
   if (!tag?.id) throw new Error("No tag detected");
   
@@ -468,11 +511,11 @@ await nfc.service.withTechnology(nfcVTag.tech, async () => {
 import { nfcNdefTag } from "@spencerls/react-native-nfc";
 ```
 
-Low-level NDEF operations. Use inside `withTechnology` sessions.
+Low-level NDEF operations. Use inside technology sessions.
 
 ### Properties
 
-- `tech`: NfcTech constant for NDEF (use with `withTechnology`)
+- `tech`: NfcTech constant for NDEF (use with technology sessions)
 
 ### Methods
 
@@ -490,9 +533,9 @@ await nfcNdefTag.write(records: NdefRecord[]): Promise<void>
 
 **Example:**
 ```ts
-import { nfcNdefTag } from "@spencerls/react-native-nfc";
+import { nfc, nfcNdefTag } from "@spencerls/react-native-nfc";
 
-await nfc.service.withTechnology(nfcNdefTag.tech, async () => {
+await nfc.service.startTech(nfcNdefTag.tech, async () => {
   const message = await nfcNdefTag.readMessage();
   console.log("Records:", message.ndefMessage);
 });
@@ -510,84 +553,159 @@ import { ... } from "@spencerls/react-native-nfc";
 
 ---
 
-## useNfc(onTag, options)
+## useNfcTech(tech, withTechnology, afterTechnology?, options?)
 
-Automatically starts reader mode on mount and stops on unmount.
-
-**Note:** Call `nfcService.enableReaderMode_ANDROID(flags)` before using this hook on Android.
+One-shot technology session. Executes once when triggered.
 
 ```ts
-useNfc(
-  (tagId: string) => { ... },
-  {
-    cooldownMs?: number
-  }
+const { startTech } = useNfcTech(
+  tech: NfcTech[],
+  withTechnology: () => Promise<void>,
+  afterTechnology?: () => Promise<void>,
+  options?: RegisterTagEventOpts
 );
 ```
 
 **Example:**
 ```ts
-import { nfcService } from "@spencerls/react-native-nfc";
-import { NfcAdapter } from "react-native-nfc-manager";
+import { useNfcTech, nfcTag } from "@spencerls/react-native-nfc";
+import { NfcTech } from "react-native-nfc-manager";
 
-// Call once at app startup
-nfcService.enableReaderMode_ANDROID(NfcAdapter.FLAG_READER_NFC_V);
+function ScanButton() {
+  const { startTech } = useNfcTech(
+    [NfcTech.NfcV],
+    async () => {
+      const tag = await nfcTag.getTag();
+      console.log("Tag ID:", tag.id);
+    }
+  );
 
-// Then use the hook
-useNfc((tagId) => {
-  console.log("Scanned:", tagId);
-}, { cooldownMs: 800 });
+  return <Button title="Scan" onPress={startTech} />;
+}
+```
+
+**With afterTechnology callback:**
+```ts
+const { startTech } = useNfcTech(
+  [NfcTech.NfcV],
+  async () => {
+    const tag = await nfcTag.getTag();
+    console.log("Tag ID:", tag.id);
+  },
+  async () => {
+    console.log("Scan complete");
+  }
+);
 ```
 
 ---
 
-## useNfcState()
+## useNfcTechLoop(tech, withTechnology, afterTechnology?, options?)
 
-Access current NFC state:
-
-```tsx
-const { mode, tag } = useNfcState();
-```
-
----
-
-## useNfcReader()
-
-Manual control over reader mode.
-
-**Note:** Call `nfcService.enableReaderMode_ANDROID(flags)` before calling `start()` on Android.
+Continuous technology session loop. Automatically restarts after each tag interaction.
 
 ```ts
-const { start, stop } = useNfcReader();
+const { start, stop, isRunning } = useNfcTechLoop(
+  tech: NfcTech[],
+  withTechnology: () => Promise<void>,
+  afterTechnology?: () => Promise<void>,
+  options?: RegisterTagEventOpts
+);
+```
 
-// start signature:
-start(onTag?: (tag: TagEvent) => void, options?: { cooldownMs?: number })
+**Example:**
+```ts
+import { useNfcTechLoop, nfcTag } from "@spencerls/react-native-nfc";
+import { NfcTech } from "react-native-nfc-manager";
+
+function ContinuousScanScreen() {
+  const { start, stop, isRunning } = useNfcTechLoop(
+    [NfcTech.Ndef],
+    async () => {
+      const tag = await nfcTag.getTag();
+      console.log("Tag detected:", tag.id);
+    }
+  );
+
+  return (
+    <View>
+      <Button title={isRunning ? "Stop" : "Start"} onPress={isRunning ? stop : start} />
+      <Text>{isRunning ? "Scanning..." : "Idle"}</Text>
+    </View>
+  );
+}
+```
+
+**With afterTechnology callback:**
+```ts
+const { start, stop, isRunning } = useNfcTechLoop(
+  [NfcTech.Ndef],
+  async () => {
+    const tag = await nfcTag.getTag();
+    console.log("Tag detected:", tag.id);
+  },
+  async () => {
+    console.log("Waiting for next tag...");
+  }
+);
 ```
 
 ---
 
-## useNfcTechnology()
+## useNfcTagEvent(onTag)
 
-Runs an NFC technology session (NfcV, Ndef, etc).
+One-shot tag event handler. Executes once when a tag is detected.
 
 ```ts
-await runWithTech([NfcTech.NfcV], async () => {
-  const info = await nfc.v.getSystemInfoNfcV();
-});
+const { startTech } = useNfcTagEvent(
+  onTag: (tag: TagEvent) => Promise<void>
+);
+```
+
+**Example:**
+```ts
+import { useNfcTagEvent } from "@spencerls/react-native-nfc";
+
+function QuickScan() {
+  const { startTech } = useNfcTagEvent(async (tag) => {
+    console.log("Tag ID:", tag.id);
+  });
+
+  return <Button title="Quick Scan" onPress={startTech} />;
+}
 ```
 
 ---
 
-# Types
+## useNfcTagEventLoop(onTag, options?)
 
-All types are exported from `@spencerls/react-native-nfc/nfc`.
-
-Notable types:
+Continuous tag event loop. Automatically restarts after each tag detection.
 
 ```ts
-NfcState
-NfcMode
-TagEvent
+const { start, stop, isRunning } = useNfcTagEventLoop(
+  onTag: (tag: TagEvent) => Promise<void>,
+  options?: RegisterTagEventOpts
+);
+```
+
+**Example:**
+```ts
+import { useNfcTagEventLoop } from "@spencerls/react-native-nfc";
+
+function MonitorScreen() {
+  const { start, stop, isRunning } = useNfcTagEventLoop(
+    async (tag) => {
+      console.log("Tag detected:", tag.id);
+    }
+  );
+
+  return (
+    <View>
+      <Button title={isRunning ? "Stop Monitoring" : "Start Monitoring"} 
+              onPress={isRunning ? stop : start} />
+    </View>
+  );
+}
 ```
 
 ---
@@ -608,11 +726,11 @@ await nfc.ndef.write(records);
 
 ### Low-Level (Advanced)
 
-Use tag modules (`nfcTag`, `nfcVTag`, `nfcNdefTag`) inside `withTechnology` for complex operations.
+Use `nfc.service.startTech()` with tag modules for complex custom operations.
 
 ```ts
 // ✅ Advanced: custom multi-block read
-await nfc.service.withTechnology(nfcVTag.tech, async () => {
+await nfc.service.startTech(nfcVTag.tech, async () => {
   const tag = await nfcTag.getTag();
   if (!tag?.id) throw new Error("No NFC-V tag detected");
   
@@ -626,21 +744,43 @@ await nfc.service.withTechnology(nfcVTag.tech, async () => {
     offset += block.length;
   }
   
-  return buffer;
+  console.log("Data:", buffer);
 });
+```
+
+## One-Shot vs Loop
+
+### One-Shot Operations
+
+Use for single tag interactions (scan once and done):
+
+```ts
+const { startTech } = useNfcTech(...);
+// or
+const { startTech } = useNfcTagEvent(...);
+```
+
+### Continuous Loops
+
+Use for monitoring or multiple sequential tag interactions:
+
+```ts
+const { start, stop, isRunning } = useNfcTechLoop(...);
+// or
+const { start, stop, isRunning } = useNfcTagEventLoop(...);
 ```
 
 ---
 
 # Internal Notes
 
-- **Android reader mode flags** must be configured via `enableReaderMode_ANDROID()` before starting reader mode or using technology sessions.
-- iOS automatically restarts reader mode after each scan.
-- Android waits for cooldown before accepting next scan.
-- Technology sessions interrupt reader mode safely and auto-restart when done.
-- `NfcTech` enums must be used. Do not pass raw strings.
+- All APIs are 100% cross-platform (iOS and Android).
+- Technology sessions are automatically managed and cleaned up.
+- Hooks automatically stop sessions on component unmount.
+- The service uses a job-based architecture with retry mechanisms.
 - High-level `nfc.*` operations automatically manage technology sessions.
-- Low-level tag modules require manual `withTechnology` wrapping.
+- For custom operations, use `nfc.service.startTech()` with low-level tag modules.
+- Loop operations automatically restart after each tag interaction.
 
 ---
 

@@ -5,12 +5,12 @@ import nfcManager, {
   type TagEvent,
 } from "react-native-nfc-manager";
 
-import { nfcService } from "../service";
 import { nfcTag } from "../tag";
 import { Builder } from "./builder";
 import { NdefError } from "./error";
 import { nfcNdefTag } from "./internal";
 import type { NdefMessageResult } from "./types";
+import { NfcPrimitives } from "../primitives";
 
 export async function getStatus(): Promise<{
   status: NdefStatus;
@@ -20,7 +20,7 @@ export async function getStatus(): Promise<{
 }
 
 export async function readMessage(): Promise<NdefMessageResult> {
-  return await nfcService.withTechnology(
+  return await NfcPrimitives.withTechnology(
     nfcNdefTag.tech,
     nfcNdefTag.readMessage,
   );
@@ -30,7 +30,7 @@ export async function readFull(): Promise<{
   message: NdefMessageResult;
   tag: TagEvent;
 }> {
-  return await nfcService.withTechnology(nfcNdefTag.tech, async () => {
+  return await NfcPrimitives.withTechnology(nfcNdefTag.tech, async () => {
     const tag = await nfcTag.getTag();
     const message = await nfcNdefTag.readMessage();
     return { message, tag };
@@ -41,7 +41,7 @@ export async function write(records: NdefRecord[]): Promise<void> {
   if (!records || records.length === 0) {
     throw new NdefError("write: no NDEF records provided");
   }
-  await nfcService.withTechnology(
+  await NfcPrimitives.withTechnology(
     nfcNdefTag.tech,
     async () => await nfcNdefTag.write(records),
   );
@@ -105,7 +105,7 @@ export async function writeExternal(
 }
 
 export async function makeReadOnly(): Promise<void> {
-  await nfcService.withTechnology(
+  await NfcPrimitives.withTechnology(
     nfcNdefTag.tech,
     nfcManager.ndefHandler.makeReadOnly,
   );

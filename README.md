@@ -6,19 +6,17 @@ A clean, React-friendly, **cross-platform** NFC layer built on top of
 ## 🎯 Truly Cross-Platform
 
 Write your NFC code once and it works on **both iOS and Android**.  
-The only platform-specific code is the optional Android reader mode configuration.  
-Everything else—reading, writing, and all NFC operations—uses the exact same API.
+All NFC operations use the exact same API across platforms.
 
 This package provides:
 
-- A unified NFC service (`nfcService`)
+- A unified NFC service with job-based architecture (`nfcService`)
 - High-level protocol namespaces (`nfc.tag`, `nfc.v`, `nfc.ndef`)
 - Low-level tag modules (`nfcTag`, `nfcVTag`, `nfcNdefTag`)
-- Automatic iOS reader restarts
-- Safe Android reader handling
-- Optional React hooks and provider
+- React hooks for one-shot and continuous NFC sessions
 - Technology sessions for NDEF/NfcV and raw commands
 - Builder pattern for NDEF records
+- Automatic session management and cleanup
 
 The API is designed to be stable, predictable, and easy to use across iOS and Android.
 
@@ -28,15 +26,13 @@ The API is designed to be stable, predictable, and easy to use across iOS and An
 
 | Feature | iOS | Android |
 |---------|-----|---------|
-| Reader Mode* | ❌ | ✅ |
+| Technology Sessions | ✅ | ✅ |
+| Tag Event Handling | ✅ | ✅ |
 | NDEF Read/Write | ✅ | ✅ |
 | NFC-V (ISO15693) | ✅ | ✅ |
-| Technology Sessions | ✅ | ✅ |
 | React Hooks | ✅ | ✅ |
 
-**\*Reader Mode** is Android's background NFC scanning API. iOS uses Technology Sessions instead.  
-**Platform-specific code:** Only `enableReaderMode_ANDROID()` is Android-specific (no-op on iOS).  
-All other APIs work identically on both platforms.
+**100% Cross-Platform** - All APIs work identically on both platforms.
 
 ---
 
@@ -56,32 +52,46 @@ Works with:
 
 ---
 
-## Basic Usage (Reader Mode)
+## Quick Start
+
+### One-Shot Tag Read
 
 ```tsx
-import { useNfc, useNfcState, nfcService } from "@spencerls/react-native-nfc";
-import { NfcAdapter } from "react-native-nfc-manager";
+import { useNfcTech, nfcTag } from "@spencerls/react-native-nfc";
+import { NfcTech } from "react-native-nfc-manager";
 
-export default function ScannerScreen() {
-  const { mode } = useNfcState();
-
-  // Platform-specific: Configure Android reader mode (no-op on iOS)
-  // Call once, typically at app startup or in useEffect
-  nfcService.enableReaderMode_ANDROID(
-    NfcAdapter.FLAG_READER_NFC_V |
-    NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS
+export default function ScanButton() {
+  const { startTech } = useNfcTech(
+    [NfcTech.Ndef, NfcTech.NfcV],
+    async () => {
+      const tag = await nfcTag.getTag();
+      console.log("Tag ID:", tag.id);
+    }
   );
 
-  // Cross-platform: Works identically on iOS and Android
-  useNfc((tagId) => {
-    console.log("Scanned:", tagId);
-  }, {
-    cooldownMs: 800
-  });
+  return <Button title="Scan NFC" onPress={startTech} />;
+}
+```
+
+### Continuous Tag Scanning
+
+```tsx
+import { useNfcTechLoop, nfcTag } from "@spencerls/react-native-nfc";
+import { NfcTech } from "react-native-nfc-manager";
+
+export default function ContinuousScanScreen() {
+  const { start, stop, isRunning } = useNfcTechLoop(
+    [NfcTech.Ndef, NfcTech.NfcV],
+    async () => {
+      const tag = await nfcTag.getTag();
+      console.log("Tag detected:", tag.id);
+    }
+  );
 
   return (
     <View>
-      <Text>NFC Mode: {mode}</Text>
+      <Button title={isRunning ? "Stop" : "Start"} onPress={isRunning ? stop : start} />
+      <Text>Status: {isRunning ? "Scanning..." : "Idle"}</Text>
     </View>
   );
 }
@@ -89,35 +99,9 @@ export default function ScannerScreen() {
 
 ---
 
-## Manual Reader Control
+## High-Level Operations
 
-```tsx
-import { useNfcReader, nfcService } from "@spencerls/react-native-nfc";
-import { NfcAdapter } from "react-native-nfc-manager";
-
-export default function Screen() {
-  const { start, stop } = useNfcReader();
-
-  // Platform-specific: Configure Android reader mode (no-op on iOS)
-  nfcService.enableReaderMode_ANDROID(NfcAdapter.FLAG_READER_NFC_V);
-
-  const begin = () => {
-    // Cross-platform: Works identically on iOS and Android
-    start(
-      (tag) => {
-        console.log("Tag:", tag.id);
-      },
-      { cooldownMs: 1200 }
-    );
-  };
-
-  return <Button title="Start" onPress={begin} />;
-}
-```
-
----
-
-## Get Basic Tag Information
+### Get Basic Tag Information
 
 **Cross-platform:** Works identically on iOS and Android.
 
@@ -125,149 +109,167 @@ export default function Screen() {
 import { nfc } from "@spencerls/react-native-nfc";
 import { NfcTech } from "react-native-nfc-manager";
 
-export default function ScanTagButton() {
-  const scanTag = async () => {
-    const tag = await nfc.tag.getTag([
-      NfcTech.NfcA,
-      NfcTech.NfcV,
-      NfcTech.Ndef,
-    ]);
-    console.log("Tag ID:", tag.id);
-    console.log("Tag Type:", tag.type);
-  };
-
-  return <Button title="Scan Tag" onPress={scanTag} />;
-}
+const tag = await nfc.tag.getTag([NfcTech.NfcA, NfcTech.NfcV, NfcTech.Ndef]);
+console.log("Tag ID:", tag.id);
+console.log("Tag Type:", tag.type);
 ```
 
 ---
 
-## NDEF Write with Builder
+### NDEF Write with Builder
 
 **Cross-platform:** Works identically on iOS and Android.
 
 ```tsx
 import { nfc } from "@spencerls/react-native-nfc";
 
-export default function WriteNdefButton() {
-  const writeNdef = async () => {
-    await nfc.ndef.write(
-      nfc.ndef.Builder.records((B) => [
-        B.textRecord("Hello, world!"),
-        B.uriRecord("https://www.google.com"),
-        B.jsonRecord(
-          JSON.stringify({
-            name: "John Doe",
-            age: 30,
-            email: "john.doe@example.com",
-          })
-        ),
-      ])
-    );
-  };
-
-  return <Button title="Write NDEF" onPress={writeNdef} />;
-}
+await nfc.ndef.write(
+  nfc.ndef.Builder.records((B) => [
+    B.textRecord("Hello, world!"),
+    B.uriRecord("https://www.google.com"),
+    B.jsonRecord(
+      JSON.stringify({
+        name: "John Doe",
+        age: 30,
+        email: "john.doe@example.com",
+      })
+    ),
+  ])
+);
 ```
 
 ---
 
-## NDEF Read
+### NDEF Read
 
 **Cross-platform:** Works identically on iOS and Android.
 
 ```tsx
 import { nfc } from "@spencerls/react-native-nfc";
 
-export default function ReadNdefButton() {
-  const readNdef = async () => {
-    const { message, tag } = await nfc.ndef.readFull();
-    console.log("Tag ID:", tag.id);
-    console.log("Records:", message.ndefMessage);
-  };
-
-  return <Button title="Read NDEF" onPress={readNdef} />;
-}
+const { message, tag } = await nfc.ndef.readFull();
+console.log("Tag ID:", tag.id);
+console.log("Records:", message.ndefMessage);
 ```
 
 ---
 
-## Custom NFC-V Operations
+### High-Level NFC-V Operations
+
+**Cross-platform:** Works identically on iOS and Android.
+
+```tsx
+import { nfc } from "@spencerls/react-native-nfc";
+
+// Read a single block
+const data = await nfc.v.readBlock(0);
+console.log("Block 0:", data);
+
+// Write a single block
+const writeData = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
+await nfc.v.writeBlock(0, writeData);
+
+// Get system info
+const info = await nfc.v.getSystemInfo();
+console.log("Blocks:", info.numberOfBlocks);
+console.log("Block size:", info.blockSize);
+```
+
+---
+
+## Advanced: Custom NFC-V Operations
 
 **Cross-platform:** Works identically on iOS and Android.
 
 ```tsx
 import { nfc, nfcTag, nfcVTag } from "@spencerls/react-native-nfc";
 
-export default function ReadNfcVButton() {
-  const readCustom = async () => {
-    const data = await nfc.service.withTechnology(nfcVTag.tech, async () => {
-      const tag = await nfcTag.getTag();
-      if (!tag?.id) throw new Error("No NFC-V tag detected");
+await nfc.service.startTech(
+  nfcVTag.tech,
+  async () => {
+    const tag = await nfcTag.getTag();
+    if (!tag?.id) throw new Error("No NFC-V tag detected");
 
-      const buffer = new Uint8Array();
-      let offset = 0;
-      
-      // Read blocks 0, 2, 4, 6
-      for (let i = 0; i < 8; i += 2) {
-        const block = await nfcVTag.readBlock(tag.id, i);
-        buffer.set(block, offset);
-        offset += block.length;
-      }
-      
-      return buffer;
-    });
+    const buffer = new Uint8Array();
+    let offset = 0;
     
-    console.log("Data:", data);
-  };
-
-  return <Button title="Read NFC-V" onPress={readCustom} />;
-}
+    // Read blocks 0, 2, 4, 6
+    for (let i = 0; i < 8; i += 2) {
+      const block = await nfcVTag.readBlock(tag.id, i);
+      buffer.set(block, offset);
+      offset += block.length;
+    }
+    
+    console.log("Data:", buffer);
+  }
+);
 ```
 
 ---
 
-## High-Level NFC-V Operations
+## React Hooks Reference
 
-**Cross-platform:** Works identically on iOS and Android.
+### useNfcTech
+
+One-shot technology session. Executes once when triggered.
 
 ```tsx
-import { nfc } from "@spencerls/react-native-nfc";
+const { startTech } = useNfcTech(
+  tech: NfcTech[],
+  withTechnology: () => Promise<void>,
+  afterTechnology?: () => Promise<void>,
+  options?: RegisterTagEventOpts
+);
+```
 
-export default function NfcVScreen() {
-  const readBlock = async () => {
-    const data = await nfc.v.readBlock(0);
-    console.log("Block 0:", data);
-  };
+### useNfcTechLoop
 
-  const writeBlock = async () => {
-    const data = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
-    await nfc.v.writeBlock(0, data);
-  };
+Continuous technology session loop. Automatically restarts after each tag.
 
-  const getInfo = async () => {
-    const info = await nfc.v.getSystemInfo();
-    console.log("System Info:", info);
-  };
+```tsx
+const { start, stop, isRunning } = useNfcTechLoop(
+  tech: NfcTech[],
+  withTechnology: () => Promise<void>,
+  afterTechnology?: () => Promise<void>,
+  options?: RegisterTagEventOpts
+);
+```
 
-  return (
-    <View>
-      <Button title="Read Block" onPress={readBlock} />
-      <Button title="Write Block" onPress={writeBlock} />
-      <Button title="Get Info" onPress={getInfo} />
-    </View>
-  );
-}
+### useNfcTagEvent
+
+One-shot tag event. Executes once when a tag is detected.
+
+```tsx
+const { startTech } = useNfcTagEvent(
+  onTag: (tag: TagEvent) => Promise<void>
+);
+```
+
+### useNfcTagEventLoop
+
+Continuous tag event loop. Automatically restarts after each tag.
+
+```tsx
+const { start, stop, isRunning } = useNfcTagEventLoop(
+  onTag: (tag: TagEvent) => Promise<void>,
+  options?: RegisterTagEventOpts
+);
 ```
 
 ---
 
 ## API Overview
 
-**Cross-platform:** All APIs below work identically on iOS and Android.
+**Cross-platform:** All APIs work identically on iOS and Android.
 
 ```ts
-import { nfc, nfcTag, nfcVTag, nfcNdefTag } from "@spencerls/react-native-nfc";
+import { 
+  nfc, 
+  nfcService, 
+  nfcTag, 
+  nfcVTag, 
+  nfcNdefTag
+} from "@spencerls/react-native-nfc";
 
 // High-level namespace operations (auto-manages technology sessions)
 await nfc.tag.getTag([NfcTech.NfcV]);
@@ -278,10 +280,11 @@ await nfc.ndef.write(records);
 await nfc.ndef.readMessage();
 await nfc.ndef.readFull();
 
-// Low-level tag modules (use inside withTechnology)
-await nfc.service.withTechnology(nfcVTag.tech, async () => {
+// Custom operations using service
+await nfc.service.startTech(nfcVTag.tech, async () => {
   const tag = await nfcTag.getTag();
   const block = await nfcVTag.readBlock(tag.id, 0);
+  console.log(block);
 });
 
 // NDEF Builder
@@ -294,9 +297,11 @@ const records = nfc.ndef.Builder.records((B) => [
 ]);
 
 // Service control
-nfc.service.enableReaderMode_ANDROID(flags); // Android-only (no-op on iOS)
-await nfc.service.startReader(onTag, options); // Cross-platform
-await nfc.service.stopReader(); // Cross-platform
+await nfcService.startTech(tech, withTech);
+await nfcService.startTechLoop(tech, withTech);
+await nfcService.startTagEvent(onTag);
+await nfcService.startTagEventLoop(onTag);
+await nfcService.stop();
 ```
 
 ---
